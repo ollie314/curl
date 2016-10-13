@@ -69,6 +69,7 @@
  5.7 Brotli compression
  5.8 QUIC
  5.9 Add easy argument to formpost functions
+ 5.10 Leave secure cookies alone
 
  6. TELNET
  6.1 ditch stdin
@@ -132,6 +133,7 @@
  17. SSH protocols
  17.1 Multiplexing
  17.2 SFTP performance
+ 17.3 Support better than MD5 hostkey hash
 
  18. Command line tool
  18.1 sync
@@ -148,9 +150,11 @@
  18.12 keep running, read instructions from pipe/socket
  18.13 support metalink in http headers
  18.14 --fail without --location should treat 3xx as a failure
+ 18.15 Introduce --fail-fast to exit on first transfer fail
 
  19. Build
  19.1 roffit
+ 19.2 Enable PIE and RELRO by default
 
  20. Test suite
  20.1 SSL tunnel
@@ -554,6 +558,14 @@ This is not detailed in any FTP specification.
  deprecating the old ones. Allows better error messages and is generally good
  API hygiene.
 
+5.10 Leave secure cookies alone
+
+ Non-secure origins (HTTP sites) should not be allowed to set or modify
+ cookies with the 'secure' property:
+
+ https://tools.ietf.org/html/draft-ietf-httpbis-cookie-alone-01
+
+
 6. TELNET
 
 6.1 ditch stdin
@@ -854,6 +866,16 @@ that doesn't exist on the server, just like --ftp-create-dirs.
  libcurl's SFTP transfer performance is sub par and can be improved, mostly by
  the approach mentioned in "1.6 Modified buffer size approach".
 
+17.3 Support better than MD5 hostkey hash
+
+ libcurl offers the CURLOPT_SSH_HOST_PUBLIC_KEY_MD5 option for verifying the
+ server's key. MD5 is generally being deprecated so we should implement
+ support for stronger hashing algorithms. libssh2 itself is what provides this
+ underlying functionality and it supports at least SHA-1 as an alternative.
+ SHA-1 is also being deprecated these days so we should consider workign with
+ libssh2 to instead offer support for SHA-256 or similar.
+
+
 18. Command line tool
 
 18.1 sync
@@ -977,6 +999,14 @@ that doesn't exist on the server, just like --ftp-create-dirs.
  way to implement this is probably to add that new logic in the command line
  tool only and not in the underlying CURLOPT_FAILONERROR logic.
 
+18.15 Introduce --fail-fast to exit on first transfer fail
+
+ curl will transfer all URLs given on the command line one by one but only
+ returns the error code for the last transfer. Transfer failures on the first
+ ones will not be returned as error code etc to the shell. A --fail-fast
+ option would make curl exit and return an error for the first transfer that
+ fails.
+
 
 19. Build
 
@@ -984,6 +1014,19 @@ that doesn't exist on the server, just like --ftp-create-dirs.
 
  Consider extending 'roffit' to produce decent ASCII output, and use that
  instead of (g)nroff when building src/tool_hugehelp.c
+
+19.2 Enable PIE and RELRO by default
+
+ Especially when having programs that execute cURL via the command line, PIE
+ renders the exploitation of memory corruption vulnerabilities a lot more
+ difficult. This can be attributed to the additional information leaks being
+ required to conduct a successful attack. RELRO, on the other hand, masks
+ different binary sections like the GOT as read-only and thus kills a handful
+ of techniques that come in handy when attackers are able to arbitrarily
+ overwrite memory. A few tests showed that enabling these features had close
+ to no impact, neither on the performance nor on the general functionality of
+ cURL.
+
 
 20. Test suite
 
